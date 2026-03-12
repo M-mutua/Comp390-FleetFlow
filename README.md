@@ -11,11 +11,13 @@ Frontend client for FleetFlow built with React + Vite.
 ## Local Development
 
 1. Install dependencies:
+
 ```bash
 npm ci
 ```
 
 2. Start the dev server:
+
 ```bash
 npm run dev
 ```
@@ -25,11 +27,13 @@ npm run dev
 ## Production Build (Local)
 
 Build static assets:
+
 ```bash
 npm run build
 ```
 
 Preview the production build:
+
 ```bash
 npm run preview
 ```
@@ -39,17 +43,19 @@ npm run preview
 This project currently uses a Node-only Docker image (no Nginx).
 
 1. Build image:
+
 ```bash
 docker build -t fleetflow-frontend .
 ```
 
 2. Run container:
+
 ```bash
 docker run -p 4173:4173 fleetflow-frontend
 ```
 
 3. Open:
-`http://localhost:4173`
+   `http://localhost:4173`
 
 ## Environment Variables
 
