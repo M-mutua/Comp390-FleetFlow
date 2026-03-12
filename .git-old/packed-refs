@@ -1,0 +1,8 @@
+# pack-refs with: peeled fully-peeled sorted 
+567f679ac3680dff505604ed8d29ae3804950fd6 refs/heads/KV/work
+c852d694e21e5db222e3f9c27688bc99c68a9e9f refs/heads/main
+283ec05bee44029d0d5816422bbbfd6176944113 refs/remotes/origin/Mechantchulo-patch-1
+13299b492e67faed3e720faf0b47aa583e78724e refs/remotes/origin/Tasha/work
+c656d407429ae9b01ba4061291a7acfd73a27a8c refs/remotes/origin/dev1/work
+13299b492e67faed3e720faf0b47aa583e78724e refs/remotes/origin/dev3/work
+c852d694e21e5db222e3f9c27688bc99c68a9e9f refs/remotes/origin/main
