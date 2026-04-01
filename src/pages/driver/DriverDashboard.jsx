@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { LayoutDashboard, Fuel, Map, User, Settings, LogOut, Truck } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 const DriverDashboard = () => {
 
@@ -18,23 +19,53 @@ const DriverDashboard = () => {
 
   const addTrip = () => {
 
-    if (!destination || !date || !passengers) return;
+  // Check empty fields
+  if (!destination || !date || !passengers) {
+    alert("Please fill all fields");
+    return;
+  }
 
-    const newTrip = {
-      id: "#TP-" + Math.floor(Math.random() * 1000),
-      destination,
-      date,
-      passengers
-    };
+  // Prevent negative or zero passengers
+  if (passengers <= 0) {
+    alert("Passengers cannot be less than or equal to 0");
+    return;
+  }
+  //limit maximum passengers to 100
+  if (passengers > 100) {
+    alert("Passengers cannot exceed 100"); 
+    return;
+  }
 
-    setTrips([...trips, newTrip]);
+  // Prevent past dates
+  const selectedDate = new Date(date);
+  const today = new Date();
 
-    setDestination("");
-    setDate("");
-    setPassengers("");
+  // Remove time from today's date for accurate comparison
+  today.setHours(0,0,0,0);
+
+  if (selectedDate < today) {
+    alert("Date cannot be in the past");
+    return;
+  }
+
+  // If all validations pass
+  const newTrip = {
+    id: "#TP-" + Math.floor(Math.random() * 1000),
+    destination,
+    date,
+    passengers
   };
 
+  setTrips([...trips, newTrip]);
+
+  // Reset inputs
+  setDestination("");
+  setDate("");
+  setPassengers("");
+};
+
   return (
+  
     <div className="flex min-h-screen bg-gray-50 text-gray-800">
 
       {/* SIDEBAR */}
@@ -50,19 +81,20 @@ const DriverDashboard = () => {
         </div>
 
         <nav className="flex-1 space-y-4">
-git 
+
           <div className="flex items-center gap-3 text-teal-600 font-semibold bg-teal-50 p-3 rounded-lg cursor-pointer">
             <LayoutDashboard size={17}/> Overview
           </div>
-
+<link to="/trip-logs">
           <div className="flex items-center gap-3 text-gray-500 hover:text-teal-600 p-3 cursor-pointer">
             <Map size={17}/> Trip Management
           </div>
-
-          <div className="flex items-center gap-3 text-gray-500 hover:text-teal-600 p-3 cursor-pointer">
-            <Fuel size={17}/> Fuel Logs
-          </div>
-
+</link>
+         <Link to="/fuel-logs">
+  <div className="flex items-center gap-3 text-gray-500 hover:text-teal-600 p-3 cursor-pointer">
+    <Fuel size={17}/> Fuel Logs
+  </div>
+</Link>
           <div className="flex items-center gap-3 text-gray-500 hover:text-teal-600 p-3 cursor-pointer">
             <User size={17}/> Profile
           </div>
@@ -96,10 +128,12 @@ git
         </header>
 
 
-        //Stat inputs
+        {/* Stat inputs */}
         <section className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
 
           <StatInput
+          type="number"
+          min="0"
             title="Active Trips"
             value={activeTrips}
             setValue={setActiveTrips}
@@ -144,6 +178,8 @@ git
 
             <input
               type="number"
+              min="1"
+              max="100"
               placeholder="Passengers"
               value={passengers}
               onChange={(e)=>setPassengers(e.target.value)}
