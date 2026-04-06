@@ -53,7 +53,7 @@ const DeanDashboard = () => {
               Dean Approval Dashboard
             </h1>
             <p className="text-gray-500">
-              Manage departmental transport requests and review history.
+              Manage transport requests and review history.
             </p>
           </div>
 
