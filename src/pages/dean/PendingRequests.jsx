@@ -78,23 +78,23 @@ const PendingRequests = () => {
   };
 
   return (
-    <div className="bg-[#F9FAFB] min-h-screen p-8">
+    <div className="bg-[#] min-h-screen p-8">
       <div className="mb-6">
         <h2 className="text-2xl font-bold text-gray-800">Pending Requests</h2>
       </div>
 
-      <div className="bg-white rounded-2xl shadow-sm border p-6">
+      <div className="bg-#2A9D8F rounded-2xl shadow-sm border p-6">
         <table className="w-full text-left">
-          <thead>
-            <tr className="text-gray-400 text-xs uppercase tracking-wider border-b">
-              <th className="pb-4">REQUEST ID</th>
-              <th className="pb-4">REQUESTER</th>
-              <th className="pb-4">PURPOSE</th>
-              <th className="pb-4">DATE & DEST.</th>
-              <th className="pb-4">STATUS</th>
-              <th className="pb-4 text-right">ACTIONS</th>
-            </tr>
-          </thead>
+          <thead className ="bg-[#2A9D8F]" >
+  <tr className="text-white text-xs uppercase tracking-wider">
+    <th className="pb-4 pt-3 pl-2">REQUEST ID</th>
+    <th className="pb-4">REQUESTER</th>
+    <th className="pb-4">PURPOSE</th>
+    <th className="pb-4">DATE & DEST.</th>
+    <th className="pb-4">STATUS</th>
+    <th className="pb-4 text-right pr-2">ACTIONS</th>
+  </tr>
+</thead>
 
           <tbody className="divide-y">
             {loading ? (
