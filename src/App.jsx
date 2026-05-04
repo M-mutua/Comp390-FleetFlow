@@ -13,6 +13,7 @@ import RequestHistory from "./pages/dean/RequestHistory";
 import MyRequests from "./pages/staff/MyRequests";
 import TripHistory from "./pages/staff/TripHistory";
 import ProtectedRoute from "./components/ProtectedRoute";
+import ToastContainer from "./components/Toast";
 
 export default function App() {
   const location = useLocation();
@@ -121,6 +122,7 @@ export default function App() {
           }
         />
       </Routes>
+      <ToastContainer />
     </>
   );
 }

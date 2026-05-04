@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { ArrowLeft, Bell, CircleUserRound, LayoutDashboard, LogOut, Map, Search, Settings, Truck } from "lucide-react";
 import { listAssignments } from "../../api/assignments";
 import { endTripLog, startTripLog } from "../../api/tripLogs";
+import { showToast } from "../../components/Toast";
 
 function formatDate(value) {
   if (!value) return "-";
@@ -46,7 +47,7 @@ export default function DriverDashboard() {
 
   const handleStartTrip = async () => {
     if (!activeAssignment?.id || !startMileage) {
-      window.alert("No active assignment found. Enter start mileage after assignment.");
+      showToast("No active assignment found. Enter start mileage after assignment.");
       return;
     }
 
@@ -56,16 +57,16 @@ export default function DriverDashboard() {
         startMileage: Number(startMileage),
       });
       setActiveTripLogId(String(created.id));
-      window.alert(`Trip started. Trip log ID: ${created.id}`);
+      showToast(`Trip started. Trip log ID: ${created.id}`);
       await loadAssignments();
     } catch (err) {
-      window.alert(err.message || "Failed to start trip log.");
+      showToast(err.message || "Failed to start trip log.");
     }
   };
 
   const handleEndTrip = async () => {
     if (!activeTripLogId || !endMileage) {
-      window.alert("Provide trip log ID and end mileage.");
+      showToast("Provide trip log ID and end mileage.");
       return;
     }
 
@@ -74,14 +75,14 @@ export default function DriverDashboard() {
         endMileage: Number(endMileage),
         comments,
       });
-      window.alert("Trip ended successfully.");
+      showToast("Trip ended successfully.");
       setActiveTripLogId("");
       setStartMileage("");
       setEndMileage("");
       setComments("");
       await loadAssignments();
     } catch (err) {
-      window.alert(err.message || "Failed to end trip log.");
+      showToast(err.message || "Failed to end trip log.");
     }
   };
 
@@ -177,8 +178,18 @@ export default function DriverDashboard() {
               <div className="rounded-xl border border-teal-200 bg-teal-50/50 p-4">
                 <p className="text-xs font-semibold uppercase tracking-wider text-teal-700">Current Assigned Trip</p>
                 <div className="mt-3 grid grid-cols-1 gap-3 text-sm text-slate-700 md:grid-cols-2">
-                  <p><span className="font-semibold">Assignment ID:</span> #{activeAssignment.id}</p>
-                  <p><span className="font-semibold">Trip Request:</span> #{activeAssignment.tripRequestId || "-"}</p>
+                  <p>
+                    <span className="font-semibold">Assignment ID:</span>{" "}
+                    <span className="font-mono text-[10px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded uppercase tracking-tighter">
+                      {activeAssignment.id}
+                    </span>
+                  </p>
+                  <p>
+                    <span className="font-semibold">Trip Request:</span>{" "}
+                    <span className="font-mono text-[10px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded uppercase tracking-tighter">
+                      {activeAssignment.tripRequestId || "N/A"}
+                    </span>
+                  </p>
                   <p><span className="font-semibold">Purpose:</span> {activeAssignment.purpose || "-"}</p>
                   <p><span className="font-semibold">Destination:</span> {activeAssignment.destination || "-"}</p>
                   <p><span className="font-semibold">Vehicle:</span> {activeAssignment.vehiclePlateNumber || "-"}</p>
@@ -276,7 +287,11 @@ export default function DriverDashboard() {
                   ) : (
                     assignments.map((item) => (
                       <tr key={item.id}>
-                        <td className="py-4">#{item.id}</td>
+                        <td className="py-4">
+                          <span className="font-mono text-[10px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded uppercase tracking-tighter">
+                            {item.id}
+                          </span>
+                        </td>
                         <td className="py-4">{item.destination || "-"}</td>
                         <td className="py-4">{item.vehiclePlateNumber || "-"}</td>
                         <td className="py-4">{item.status || "-"}</td>
