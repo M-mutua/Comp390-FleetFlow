@@ -24,13 +24,18 @@ import {
   Wrench,
   XCircle,
 } from "lucide-react";
-import { jsPDF } from "jspdf";
 import { createAssignment, listAssignments, updateAssignmentStatus } from "../../api/assignments";
 import { getFuelRecordsByVehicle } from "../../api/fuelRecords";
 import { getTripLogById } from "../../api/tripLogs";
 import { approveTripRequest, getTripLogsByTripRequestId, listTripRequests, rejectTripRequest } from "../../api/trips";
 import { updateUserRole } from "../../api/users";
 import { listAllVehicles } from "../../api/vehicles";
+import {
+  generateAdminDriverSummary,
+  generateAdminFuelExpenditure,
+  generateAdminFullTripHistory,
+  generateAdminVehicleUtilization,
+} from "../../services/pdf/reports/adminReports";
 
 const kpiCardMeta = [
   { key: "tripsToday", label: "Total Trips Today", icon: Bus },
@@ -469,22 +474,52 @@ export default function AdminDashboard() {
     addToast("success", "Weekly CSV report exported.");
   }
 
-  function exportWeeklyPDF() {
-    const doc = new jsPDF();
-    doc.setFontSize(14);
-    doc.text("FleetFlow Weekly Operations Report", 14, 16);
-    doc.setFontSize(10);
-    doc.text(`Range: ${reportDates.start} to ${reportDates.end}`, 14, 23);
-    doc.text(`Pending approvals: ${pendingRequestsCount}`, 14, 30);
-    doc.text(`Delayed trips: ${delayedTripsCount}`, 14, 36);
+  function buildAdminTripHistory() {
+    const assignmentByRequestId = new Map(
+      tripRows.map((row) => [String(row.tripRequestId || row.id), row])
+    );
 
-    doc.text("Requests Snapshot", 14, 46);
-    requests.slice(0, 6).forEach((row, index) => {
-      doc.text(`${row.id} | ${row.department} | ${row.urgency} | ${row.status}`, 14, 54 + index * 6);
+    return requests.map((request) => {
+      const assignment = assignmentByRequestId.get(String(request.id));
+      return {
+        id: request.id,
+        date: request.date,
+        requesterName: request.requester,
+        driverName: assignment?.driver || "-",
+        vehiclePlate: assignment?.vehicle || "-",
+        status: request.status,
+      };
     });
+  }
 
-    doc.save(`fleetflow-weekly-report-${reportDates.start}-to-${reportDates.end}.pdf`);
-    addToast("success", "Weekly PDF report exported.");
+  function handleAdminTripHistoryReport() {
+    const doc = generateAdminFullTripHistory({ trips: buildAdminTripHistory() });
+    doc.save(`fleetflow-full-trip-history-${reportDates.start}-to-${reportDates.end}.pdf`);
+    addToast("success", "Full trip history report exported.");
+  }
+
+  function handleAdminVehicleUtilizationReport() {
+    const trips = buildAdminTripHistory().map((trip) => ({
+      vehiclePlate: trip.vehiclePlate,
+    }));
+    const doc = generateAdminVehicleUtilization({ trips });
+    doc.save(`fleetflow-vehicle-utilization-${reportDates.start}-to-${reportDates.end}.pdf`);
+    addToast("success", "Vehicle utilization report exported.");
+  }
+
+  function handleAdminDriverSummaryReport() {
+    const trips = buildAdminTripHistory().map((trip) => ({
+      driverName: trip.driverName,
+    }));
+    const doc = generateAdminDriverSummary({ trips });
+    doc.save(`fleetflow-driver-activity-${reportDates.start}-to-${reportDates.end}.pdf`);
+    addToast("success", "Driver activity report exported.");
+  }
+
+  function handleAdminFuelExpenditureReport() {
+    const doc = generateAdminFuelExpenditure({ fuelRecords });
+    doc.save(`fleetflow-fuel-expenditure-${reportDates.start}-to-${reportDates.end}.pdf`);
+    addToast("success", "Fuel expenditure report exported.");
   }
 
   const overviewPanel = (
@@ -902,7 +937,16 @@ export default function AdminDashboard() {
                     onChange={(value) => setReportDates((prev) => ({ ...prev, end: value }))}
                   />
                   <ActionButton icon={FileDown} label="Export CSV" onClick={exportWeeklyCSV} />
-                  <ActionButton icon={FileText} label="Export PDF" onClick={exportWeeklyPDF} />
+                  <div className="rounded-lg border border-dashed border-slate-200 bg-white px-3 py-2 text-xs text-slate-500">
+                    PDF exports below
+                  </div>
+                </div>
+
+                <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+                  <ActionButton icon={FileText} label="Full Trip History" onClick={handleAdminTripHistoryReport} />
+                  <ActionButton icon={FileText} label="Vehicle Utilization" onClick={handleAdminVehicleUtilizationReport} />
+                  <ActionButton icon={FileText} label="Driver Activity" onClick={handleAdminDriverSummaryReport} />
+                  <ActionButton icon={FileText} label="Fuel Expenditure" onClick={handleAdminFuelExpenditureReport} />
                 </div>
 
                 <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4">

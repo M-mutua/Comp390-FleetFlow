@@ -7,12 +7,14 @@ import {
   ClipboardList,
   Clock3,
   Gauge,
+  Download,
   Search,
   Settings,
   Truck,
   User,
 } from "lucide-react";
 import { createTripRequest, listTripRequests } from "../../api/trips";
+import { generateStaffRequestStatus, generateStaffTripHistory } from "../../services/pdf/reports/staffReports";
 
 function formatDate(value) {
   if (!value) return "-";
@@ -96,6 +98,25 @@ export default function StaffDashboard({ onSubmitRequest, onViewDetails, onSearc
     );
   };
 
+  const handleDownloadStatus = () => {
+    try {
+      const doc = generateStaffRequestStatus({ requests: filteredRequests });
+      doc.save("Staff_Request_Status.pdf");
+    } catch (error) {
+      window.alert(error.message || "Failed to generate request status report.");
+    }
+  };
+
+  const handleDownloadHistory = () => {
+    try {
+      const pastRequests = allRequests.filter((item) => item.status === "APPROVED" || item.status === "REJECTED");
+      const doc = generateStaffTripHistory({ requests: pastRequests });
+      doc.save("Staff_Trip_History.pdf");
+    } catch (error) {
+      window.alert(error.message || "Failed to generate trip history report.");
+    }
+  };
+
   return (
     <main className="min-h-screen bg-slate-100 p-2 text-slate-700 md:p-4">
       <div className="mx-auto flex min-h-screen max-w-[1280px] flex-col overflow-hidden rounded-md border border-slate-200 bg-slate-50 shadow-sm lg:flex-row">
@@ -127,6 +148,25 @@ export default function StaffDashboard({ onSubmitRequest, onViewDetails, onSearc
                 icon={<Clock3 size={16} />}
                 color="bg-amber-50 text-amber-700"
               />
+            </section>
+
+            <section className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={handleDownloadStatus}
+                className="inline-flex items-center gap-2 rounded-full bg-teal-600 px-4 py-2 text-xs font-semibold text-white hover:bg-teal-700"
+              >
+                <Download size={14} />
+                Request Status Report
+              </button>
+              <button
+                type="button"
+                onClick={handleDownloadHistory}
+                className="inline-flex items-center gap-2 rounded-full bg-slate-700 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800"
+              >
+                <Download size={14} />
+                Trip History Report
+              </button>
             </section>
 
             <RequestForm onSubmitRequest={handleSubmitRequest} />
