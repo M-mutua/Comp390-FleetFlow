@@ -9,4 +9,16 @@ export default defineConfig({
       "/auth": "http://localhost:8081",
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ["react", "react-dom", "react-router-dom"],
+          pdf: ["jspdf"],
+          icons: ["lucide-react"],
+        },
+      },
+    },
+    chunkSizeWarningLimit: 1000,
+  },
 });
