@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { endTripLog, startTripLog } from "../../api/tripLogs";
+import { isNonEmptyString, isNonNegativeIntegerString, isNonNegativeNumberString } from "../../utils/validation";
 
 export default function TripLog() {
   const [assignmentId, setAssignmentId] = useState("");
@@ -10,6 +11,16 @@ export default function TripLog() {
 
   const handleStart = async (event) => {
     event.preventDefault();
+
+    if (!isNonNegativeIntegerString(assignmentId)) {
+      window.alert("Assignment ID must be a non-negative integer.");
+      return;
+    }
+
+    if (!isNonNegativeNumberString(startMileage)) {
+      window.alert("Start mileage must be a non-negative number.");
+      return;
+    }
 
     try {
       const created = await startTripLog({
@@ -25,6 +36,21 @@ export default function TripLog() {
 
   const handleEnd = async (event) => {
     event.preventDefault();
+
+    if (!isNonNegativeIntegerString(tripLogId)) {
+      window.alert("Trip Log ID must be a non-negative integer.");
+      return;
+    }
+
+    if (!isNonNegativeNumberString(endMileage)) {
+      window.alert("End mileage must be a non-negative number.");
+      return;
+    }
+
+    if (comments && !isNonEmptyString(comments)) {
+      window.alert("Comments must be valid text.");
+      return;
+    }
 
     try {
       await endTripLog(Number(tripLogId), {
@@ -47,6 +73,7 @@ export default function TripLog() {
               Assignment ID
               <input
                 type="number"
+                min="0"
                 value={assignmentId}
                 onChange={(event) => setAssignmentId(event.target.value)}
                 className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
@@ -58,6 +85,7 @@ export default function TripLog() {
               Start Mileage
               <input
                 type="number"
+                min="0"
                 value={startMileage}
                 onChange={(event) => setStartMileage(event.target.value)}
                 className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
@@ -81,6 +109,7 @@ export default function TripLog() {
               Trip Log ID
               <input
                 type="number"
+                min="0"
                 value={tripLogId}
                 onChange={(event) => setTripLogId(event.target.value)}
                 className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
@@ -92,6 +121,7 @@ export default function TripLog() {
               End Mileage
               <input
                 type="number"
+                min="0"
                 value={endMileage}
                 onChange={(event) => setEndMileage(event.target.value)}
                 className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"

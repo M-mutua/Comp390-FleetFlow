@@ -5,6 +5,7 @@ import { listAssignments } from "../../api/assignments";
 import { getFuelRecordsByVehicle } from "../../api/fuelRecords";
 import { endTripLog, startTripLog } from "../../api/tripLogs";
 import { generateDriverFuelReceipts, generateDriverTripHistory } from "../../services/pdf/reports/driverReports";
+import { isNonEmptyString, isNonNegativeIntegerString, isNonNegativeNumberString } from "../../utils/validation";
 
 function formatDate(value) {
   if (!value) return "-";
@@ -52,6 +53,11 @@ export default function DriverDashboard() {
       return;
     }
 
+    if (!isNonNegativeNumberString(startMileage)) {
+      window.alert("Start mileage must be a non-negative number.");
+      return;
+    }
+
     try {
       const created = await startTripLog({
         assignmentId: Number(activeAssignment.id),
@@ -68,6 +74,21 @@ export default function DriverDashboard() {
   const handleEndTrip = async () => {
     if (!activeTripLogId || !endMileage) {
       window.alert("Provide trip log ID and end mileage.");
+      return;
+    }
+
+    if (!isNonNegativeIntegerString(activeTripLogId)) {
+      window.alert("Trip log ID must be a non-negative integer.");
+      return;
+    }
+
+    if (!isNonNegativeNumberString(endMileage)) {
+      window.alert("End mileage must be a non-negative number.");
+      return;
+    }
+
+    if (comments && !isNonEmptyString(comments)) {
+      window.alert("Comments must be valid text.");
       return;
     }
 
@@ -246,6 +267,7 @@ export default function DriverDashboard() {
                 <label className="text-sm text-slate-600">Start Mileage</label>
                 <input
                   type="number"
+                  min="0"
                   value={startMileage}
                   onChange={(e) => setStartMileage(e.target.value)}
                   className="w-full mt-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-600 outline-none focus:border-teal-400"
@@ -267,6 +289,7 @@ export default function DriverDashboard() {
                 <label className="text-sm text-slate-600">Trip Log ID</label>
                 <input
                   type="number"
+                  min="0"
                   value={activeTripLogId}
                   onChange={(e) => setActiveTripLogId(e.target.value)}
                   className="w-full mt-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-600 outline-none focus:border-teal-400"
@@ -277,6 +300,7 @@ export default function DriverDashboard() {
                 <label className="text-sm text-slate-600">End Mileage</label>
                 <input
                   type="number"
+                  min="0"
                   value={endMileage}
                   onChange={(e) => setEndMileage(e.target.value)}
                   className="w-full mt-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-600 outline-none focus:border-teal-400"

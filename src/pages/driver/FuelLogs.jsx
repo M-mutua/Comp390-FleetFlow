@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { createFuelRecord } from "../../api/fuelRecords";
+import { isNonEmptyString, isNonNegativeIntegerString, isNonNegativeNumberString } from "../../utils/validation";
 
 export default function FuelLogs() {
   const [form, setForm] = useState({
@@ -17,6 +18,31 @@ export default function FuelLogs() {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+
+    if (!isNonNegativeIntegerString(form.vehicleId)) {
+      window.alert("Vehicle ID must be a non-negative integer.");
+      return;
+    }
+
+    if (form.tripLogId && !isNonNegativeIntegerString(form.tripLogId)) {
+      window.alert("Trip Log ID must be a non-negative integer.");
+      return;
+    }
+
+    if (!isNonNegativeNumberString(form.fuelAmount)) {
+      window.alert("Fuel amount must be a non-negative number.");
+      return;
+    }
+
+    if (!isNonNegativeNumberString(form.fuelCost)) {
+      window.alert("Fuel cost must be a non-negative number.");
+      return;
+    }
+
+    if (!isNonEmptyString(form.fuelStation)) {
+      window.alert("Fuel station must be valid text.");
+      return;
+    }
 
     try {
       await createFuelRecord({
@@ -45,6 +71,7 @@ export default function FuelLogs() {
             <input
               name="vehicleId"
               type="number"
+              min="0"
               required
               value={form.vehicleId}
               onChange={handleChange}
@@ -57,6 +84,7 @@ export default function FuelLogs() {
             <input
               name="tripLogId"
               type="number"
+              min="0"
               value={form.tripLogId}
               onChange={handleChange}
               className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
@@ -69,6 +97,7 @@ export default function FuelLogs() {
               name="fuelAmount"
               type="number"
               step="0.01"
+              min="0"
               required
               value={form.fuelAmount}
               onChange={handleChange}
@@ -82,6 +111,7 @@ export default function FuelLogs() {
               name="fuelCost"
               type="number"
               step="0.01"
+              min="0"
               required
               value={form.fuelCost}
               onChange={handleChange}

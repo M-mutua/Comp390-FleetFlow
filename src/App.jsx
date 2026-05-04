@@ -14,8 +14,14 @@ import MyRequests from "./pages/staff/MyRequests";
 import TripHistory from "./pages/staff/TripHistory";
 import ProtectedRoute from "./components/ProtectedRoute";
 
+/**
+ * Main Application Component
+ * Handles global routing and layouts for the FleetFlow application.
+ */
 export default function App() {
   const location = useLocation();
+
+  // Show the "FleetFlow" home pill only on non-dashboard pages
   const showGlobalHomePill =
     location.pathname === "/" ||
     location.pathname === "/login" ||
@@ -37,9 +43,12 @@ export default function App() {
       )}
 
       <Routes>
+        {/* Public Routes */}
         <Route path="/" element={<RoleSelectionPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignUpPage />} />
+
+        {/* Protected Dashboard Routes */}
         <Route
           path="/dashboard/transport_manager"
           element={
@@ -80,6 +89,8 @@ export default function App() {
             </ProtectedRoute>
           }
         />
+
+        {/* Role-Specific Nested Routes */}
         <Route
           path="/dean/pending"
           element={

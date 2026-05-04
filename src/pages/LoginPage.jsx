@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { loginUser } from "../lib/authApi";
+import { isGmailAddress, isNonEmptyString } from "../utils/validation";
 import { setAuthRole, setAuthToken } from "../api/client";
 import { getCurrentTokenRole, getDashboardRouteForRole } from "../lib/session";
 
@@ -20,6 +21,15 @@ export default function LoginPage() {
 
   const handleLogin = async (e) => {
     e.preventDefault();
+    if (!isGmailAddress(email)) {
+      alert("Email must be a valid @gmail.com address.");
+      return;
+    }
+
+    if (!isNonEmptyString(password)) {
+      alert("Password is required.");
+      return;
+    }
     try {
       setLoading(true);
       const data = await loginUser({ email, password });
@@ -69,6 +79,8 @@ export default function LoginPage() {
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            pattern="[a-zA-Z0-9._%+-]+@gmail\.com"
+            title="Please use a valid @gmail.com address (e.g., name@gmail.com)"
             required
           />
           <input
