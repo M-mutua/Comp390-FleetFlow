@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeft, LayoutDashboard, History, User, Settings, LogOut, CheckCircle, XCircle, Clock } from "lucide-react";
+import { ArrowLeft, LayoutDashboard, History, User, Settings, LogOut, CheckCircle, XCircle, Clock, Download } from "lucide-react";
 import { listTripRequests } from "../../api/trips";
+import { generateDeanPendingRequests } from "../../services/pdf/reports/deanReports";
+import { generateDeanRequestHistoryReport } from "../../services/pdf/reports/deanRequestHistory";
 
 function formatDate(value) {
   if (!value) return "-";
@@ -42,6 +44,45 @@ const DeanDashboard = () => {
     () => requests.filter((item) => item.status === "PENDING").slice(0, 8),
     [requests]
   );
+
+  const approvedOrRejected = useMemo(
+    () => requests.filter((item) => item.status === "APPROVED" || item.status === "REJECTED"),
+    [requests]
+  );
+
+  const getDateRange = (rows) => {
+    const dates = rows
+      .map((row) => row.departureTime || row.createdAt)
+      .map((value) => new Date(value))
+      .filter((value) => !Number.isNaN(value.getTime()));
+    if (!dates.length) return { from: null, to: null };
+    const sorted = dates.sort((a, b) => a - b);
+    return { from: sorted[0].toISOString(), to: sorted[sorted.length - 1].toISOString() };
+  };
+
+  const handleDownloadPending = () => {
+    try {
+      const doc = generateDeanPendingRequests({ requests: pendingRequests });
+      doc.save("Dean_Pending_Requests.pdf");
+    } catch (error) {
+      window.alert(error.message || "Failed to generate pending requests report.");
+    }
+  };
+
+  const handleDownloadHistory = () => {
+    try {
+      const range = getDateRange(approvedOrRejected);
+      const doc = generateDeanRequestHistoryReport({
+        dateFrom: range.from,
+        dateTo: range.to,
+        generatedBy: "Department Dean",
+        requests: approvedOrRejected,
+      });
+      doc.save("Dean_Request_History.pdf");
+    } catch (error) {
+      window.alert(error.message || "Failed to generate history report.");
+    }
+  };
 
   return (
     <div className="flex min-h-screen bg-slate-50 text-slate-800">
@@ -89,6 +130,24 @@ const DeanDashboard = () => {
           </Link>
           <h1 className="text-3xl font-bold">Dean Approval Dashboard</h1>
           <p className="text-slate-500">Review and approve transport requests.</p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={handleDownloadPending}
+              className="inline-flex items-center gap-2 rounded-full bg-teal-600 px-4 py-2 text-xs font-semibold text-white hover:bg-teal-700"
+            >
+              <Download size={14} />
+              Pending Requests
+            </button>
+            <button
+              type="button"
+              onClick={handleDownloadHistory}
+              className="inline-flex items-center gap-2 rounded-full bg-slate-700 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800"
+            >
+              <Download size={14} />
+              Approval History
+            </button>
+          </div>
         </header>
 
         {error && (

@@ -10,11 +10,19 @@ import {
   Gauge,
   Route,
   Settings,
+  Download
 } from "lucide-react";
 import { createAssignment, listAssignments } from "../../api/assignments";
+import { getFuelRecordsByVehicle } from "../../api/fuelRecords";
 import { listTripRequests } from "../../api/trips";
 import { listAllVehicles } from "../../api/vehicles";
 import { listDrivers } from "../../api/users";
+import {
+  generateManagerActiveAssignments,
+  generateManagerFuelSummary,
+  generateManagerMileageReport,
+  generateManagerVehicleStatus,
+} from "../../services/pdf/reports/managerReports";
 
 const navItems = [
   { key: "dashboard", label: "Dashboard", icon: Gauge },
@@ -119,6 +127,47 @@ export default function TransportManagerDashboard() {
     }
   };
 
+  const handleDownloadAssignments = () => {
+    try {
+      const doc = generateManagerActiveAssignments({ assignments });
+      doc.save("Manager_Active_Assignments.pdf");
+    } catch (err) {
+      alert("Failed to generate assignments report: " + err.message);
+    }
+  };
+
+  const handleDownloadVehicleStatus = () => {
+    try {
+      const doc = generateManagerVehicleStatus({ vehicles });
+      doc.save("Manager_Vehicle_Status.pdf");
+    } catch (err) {
+      alert("Failed to generate vehicle status report: " + err.message);
+    }
+  };
+
+  const handleDownloadMileageReport = () => {
+    try {
+      const doc = generateManagerMileageReport({ vehicles });
+      doc.save("Manager_Vehicle_Mileage.pdf");
+    } catch (err) {
+      alert("Failed to generate mileage report: " + err.message);
+    }
+  };
+
+  const handleDownloadFuelSummary = async () => {
+    try {
+      const vehicleIds = vehicles.map((vehicle) => vehicle.id).filter(Boolean);
+      const fuelRows = await Promise.all(
+        vehicleIds.map((id) => getFuelRecordsByVehicle(id).catch(() => []))
+      );
+      const fuelRecords = fuelRows.flat();
+      const doc = generateManagerFuelSummary({ fuelRecords });
+      doc.save("Manager_Fuel_Receipts.pdf");
+    } catch (err) {
+      alert("Failed to generate fuel summary: " + err.message);
+    }
+  };
+
   const activeItem = navItems.find((item) => item.key === activeTab);
 
   return (
@@ -188,6 +237,37 @@ export default function TransportManagerDashboard() {
                     {error}
                   </div>
                 )}
+
+                <div className="flex flex-wrap gap-3 mb-4">
+                  <button
+                    onClick={handleDownloadAssignments}
+                    className="inline-flex items-center gap-2 rounded-full bg-teal-600 px-4 py-2 text-xs font-semibold text-white hover:bg-teal-700 transition"
+                  >
+                    <Download size={14} />
+                    Active Assignments
+                  </button>
+                  <button
+                    onClick={handleDownloadVehicleStatus}
+                    className="inline-flex items-center gap-2 rounded-full bg-slate-700 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800 transition"
+                  >
+                    <Download size={14} />
+                    Vehicle Status
+                  </button>
+                  <button
+                    onClick={handleDownloadMileageReport}
+                    className="inline-flex items-center gap-2 rounded-full bg-slate-600 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-700 transition"
+                  >
+                    <Download size={14} />
+                    Vehicle Mileage
+                  </button>
+                  <button
+                    onClick={handleDownloadFuelSummary}
+                    className="inline-flex items-center gap-2 rounded-full bg-slate-500 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-600 transition"
+                  >
+                    <Download size={14} />
+                    Fuel Receipts
+                  </button>
+                </div>
 
                 <section className="rounded-2xl border border-slate-200 bg-white p-4 md:p-5">
                   <h2 className="mb-4 text-sm font-semibold text-slate-700">Create Assignment</h2>

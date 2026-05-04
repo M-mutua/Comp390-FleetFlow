@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Search } from "lucide-react";
 import { Link } from "react-router-dom";
 import { listTripRequests } from "../../api/trips";
+import { generateDeanRequestHistoryReport } from "../../services/pdf/reports/deanRequestHistory";
+import { Download } from "lucide-react";
 
 function formatDate(value) {
   if (!value) return "-";
@@ -44,6 +46,20 @@ export default function RequestHistory() {
     });
   }, [history, searchTerm]);
 
+  const handleDownloadReport = () => {
+    try {
+      const doc = generateDeanRequestHistoryReport({
+        dateFrom: new Date(new Date().setDate(new Date().getDate() - 30)).toISOString(),
+        dateTo: new Date().toISOString(),
+        generatedBy: "System Dean",
+        requests: filteredHistory
+      });
+      doc.save("Dean_Request_History.pdf");
+    } catch (err) {
+      alert("Failed to generate report: " + err.message);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 p-8">
       <div className="mx-auto max-w-6xl">
@@ -64,15 +80,24 @@ export default function RequestHistory() {
         <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-6 py-4">
             <h3 className="text-sm font-semibold text-slate-700">All Request History</h3>
-            <div className="relative w-full max-w-sm">
-              <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Search staff or destination..."
-                className="w-full rounded-full border border-slate-200 bg-slate-50 pl-9 pr-4 py-2 text-xs text-slate-600 outline-none focus:ring-2 focus:ring-teal-400"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
+            <div className="flex items-center gap-3 w-full max-w-md">
+              <div className="relative flex-1">
+                <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search staff or destination..."
+                  className="w-full rounded-full border border-slate-200 bg-slate-50 pl-9 pr-4 py-2 text-xs text-slate-600 outline-none focus:ring-2 focus:ring-teal-400"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+              <button
+                onClick={handleDownloadReport}
+                className="inline-flex items-center gap-2 rounded-full bg-teal-600 px-4 py-2 text-xs font-semibold text-white hover:bg-teal-700 transition"
+              >
+                <Download size={14} />
+                Download Report
+              </button>
             </div>
           </div>
 

@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeft, Bell, CircleUserRound, LayoutDashboard, LogOut, Map, Search, Settings, Truck } from "lucide-react";
+import { ArrowLeft, Bell, CircleUserRound, LayoutDashboard, LogOut, Map, Search, Settings, Truck, Download } from "lucide-react";
 import { listAssignments } from "../../api/assignments";
+import { getFuelRecordsByVehicle } from "../../api/fuelRecords";
 import { endTripLog, startTripLog } from "../../api/tripLogs";
+import { generateDriverFuelReceipts, generateDriverTripHistory } from "../../services/pdf/reports/driverReports";
 
 function formatDate(value) {
   if (!value) return "-";
@@ -85,6 +87,37 @@ export default function DriverDashboard() {
     }
   };
 
+  const handleDownloadTripHistory = () => {
+    try {
+      const trips = assignments.map((assignment) => ({
+        id: assignment.id,
+        date: assignment.tripDate || assignment.createdAt,
+        destination: assignment.destination,
+        startMileage: assignment.startMileage,
+        endMileage: assignment.endMileage,
+        comments: assignment.comments,
+      }));
+      const doc = generateDriverTripHistory({ trips });
+      doc.save("Driver_Trip_History.pdf");
+    } catch (err) {
+      alert("Failed to generate trip history: " + err.message);
+    }
+  };
+
+  const handleDownloadFuelReceipts = async () => {
+    try {
+      if (!activeAssignment?.vehicleId) {
+        alert("No vehicle assigned yet. Start a trip to access fuel receipts.");
+        return;
+      }
+      const receipts = await getFuelRecordsByVehicle(activeAssignment.vehicleId).catch(() => []);
+      const doc = generateDriverFuelReceipts({ receipts });
+      doc.save("Driver_Fuel_Receipts.pdf");
+    } catch (err) {
+      alert("Failed to generate fuel receipts: " + err.message);
+    }
+  };
+
   return (
     <main className="min-h-screen bg-slate-100 p-2 text-slate-700 md:p-4">
       <div className="mx-auto flex min-h-screen max-w-[1280px] flex-col overflow-hidden rounded-md border border-slate-200 bg-slate-50 shadow-sm lg:flex-row">
@@ -150,9 +183,27 @@ export default function DriverDashboard() {
           </header>
 
           <div className="p-3 md:p-5 space-y-6">
-          <header>
-            <h1 className="text-3xl font-bold">Driver Overview</h1>
-            <p className="text-slate-500">Manage assigned trips and trip logs.</p>
+          <header className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <h1 className="text-3xl font-bold">Driver Overview</h1>
+              <p className="text-slate-500">Manage assigned trips and trip logs.</p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={handleDownloadTripHistory}
+                className="inline-flex items-center gap-2 rounded-full bg-teal-600 px-4 py-2 text-xs font-semibold text-white hover:bg-teal-700 transition"
+              >
+                <Download size={14} />
+                Trip History
+              </button>
+              <button
+                onClick={handleDownloadFuelReceipts}
+                className="inline-flex items-center gap-2 rounded-full bg-slate-700 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800 transition"
+              >
+                <Download size={14} />
+                Fuel Receipts
+              </button>
+            </div>
           </header>
 
           {error && (
