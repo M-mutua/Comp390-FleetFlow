@@ -1,3 +1,7 @@
+/**
+ * API Client Configuration and Utilities
+ * Provides a central location for API base URL, storage keys, and error handling.
+ */
 const configuredBase = (import.meta.env.VITE_API_BASE_URL || "")
   .trim()
   .replace(/\/$/, "");
@@ -7,6 +11,9 @@ const API_BASE =
 const TOKEN_STORAGE_KEY = "token";
 const ROLE_STORAGE_KEY = "role";
 
+/**
+ * Custom Error class for API-related failures.
+ */
 export class ApiError extends Error {
   constructor(status, message, payload) {
     super(message);
@@ -20,6 +27,9 @@ function getResponseContentType(response) {
   return response.headers.get("content-type") || "";
 }
 
+/**
+ * Parses the response body based on its content type.
+ */
 async function parseResponseBody(response) {
   const contentType = getResponseContentType(response);
   if (contentType.includes("application/json")) {
@@ -28,6 +38,9 @@ async function parseResponseBody(response) {
   return response.text();
 }
 
+/**
+ * Extracts a human-readable error message from the API payload.
+ */
 function toErrorMessage(payload, fallback) {
   if (typeof payload === "string" && payload.trim()) return payload;
   if (payload && typeof payload.message === "string" && payload.message.trim()) {
@@ -36,6 +49,7 @@ function toErrorMessage(payload, fallback) {
   return fallback;
 }
 
+// Authentication Helpers
 export function getAuthToken() {
   return localStorage.getItem(TOKEN_STORAGE_KEY);
 }
@@ -58,6 +72,11 @@ export function clearAuthToken() {
   localStorage.removeItem(ROLE_STORAGE_KEY);
 }
 
+/**
+ * Core function for making authenticated and unauthenticated API requests.
+ * @param {string} path - The endpoint path (e.g., '/auth/login').
+ * @param {object} options - Fetch options, including method, body, and auth flag.
+ */
 export async function apiRequest(path, options = {}) {
   const {
     method = "GET",
@@ -73,6 +92,7 @@ export async function apiRequest(path, options = {}) {
     requestHeaders["Content-Type"] = "application/json";
   }
 
+  // Add Authorization header if 'auth' is true
   if (auth) {
     const authToken = token || getAuthToken();
     if (!authToken) {
@@ -89,6 +109,7 @@ export async function apiRequest(path, options = {}) {
 
   const payload = await parseResponseBody(response);
 
+  // Handle non-2xx status codes
   if (!response.ok) {
     const message = toErrorMessage(payload, `Request failed (${response.status})`);
     throw new ApiError(response.status, message, payload);

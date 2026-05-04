@@ -23,6 +23,7 @@ import {
   generateManagerMileageReport,
   generateManagerVehicleStatus,
 } from "../../services/pdf/reports/managerReports";
+import { isNonNegativeIntegerString } from "../../utils/validation";
 
 const navItems = [
   { key: "dashboard", label: "Dashboard", icon: Gauge },
@@ -109,6 +110,21 @@ export default function TransportManagerDashboard() {
   const handleSubmit = async () => {
     if (!form.tripRequestId || !form.vehicleId || !form.driverId) {
       window.alert("Please fill all fields before submitting assignment.");
+      return;
+    }
+
+    if (!isNonNegativeIntegerString(form.tripRequestId)) {
+      window.alert("Trip request ID must be a non-negative integer.");
+      return;
+    }
+
+    if (!isNonNegativeIntegerString(form.vehicleId)) {
+      window.alert("Vehicle ID must be a non-negative integer.");
+      return;
+    }
+
+    if (!isNonNegativeIntegerString(form.driverId)) {
+      window.alert("Driver ID must be a non-negative integer.");
       return;
     }
 
@@ -326,6 +342,7 @@ export default function TransportManagerDashboard() {
                       ) : (
                         <input
                           type="number"
+                          min="0"
                           value={form.driverId}
                           onChange={(e) => setForm((prev) => ({ ...prev, driverId: e.target.value }))}
                           placeholder="Enter driver user ID"

@@ -36,6 +36,7 @@ import {
   generateAdminFullTripHistory,
   generateAdminVehicleUtilization,
 } from "../../services/pdf/reports/adminReports";
+import { isNonNegativeIntegerString } from "../../utils/validation";
 
 const kpiCardMeta = [
   { key: "tripsToday", label: "Total Trips Today", icon: Bus },
@@ -445,6 +446,11 @@ export default function AdminDashboard() {
   async function handleRoleUpdate() {
     if (!roleUpdateForm.userId.trim()) {
       addToast("warning", "Enter a user ID before updating role.");
+      return;
+    }
+
+    if (!isNonNegativeIntegerString(roleUpdateForm.userId)) {
+      addToast("warning", "User ID must be a non-negative integer.");
       return;
     }
 
@@ -968,7 +974,8 @@ export default function AdminDashboard() {
                       <p className="text-sm text-slate-600">Pending invites: <span className="font-semibold text-amber-700">--</span></p>
                       <div className="mt-3 space-y-2">
                         <input
-                          type="text"
+                          type="number"
+                          min="0"
                           value={roleUpdateForm.userId}
                           onChange={(event) => setRoleUpdateForm((prev) => ({ ...prev, userId: event.target.value }))}
                           placeholder="User ID"

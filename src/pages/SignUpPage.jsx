@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { registerUser } from "../lib/authApi";
+import { isGmailAddress, isNonEmptyString } from "../utils/validation";
 
 export default function SignupPage() {
   const [params] = useSearchParams();
@@ -27,6 +28,21 @@ export default function SignupPage() {
 
     if (role !== "operations_staff") {
       alert("Self-registration is available for operations staff only.");
+      return;
+    }
+
+    if (!isNonEmptyString(fullName)) {
+      alert("Full name is required.");
+      return;
+    }
+
+    if (!isGmailAddress(email)) {
+      alert("Email must be a valid @gmail.com address.");
+      return;
+    }
+
+    if (!isNonEmptyString(password)) {
+      alert("Password is required.");
       return;
     }
 
@@ -66,6 +82,8 @@ export default function SignupPage() {
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            pattern="[a-zA-Z0-9._%+-]+@gmail\.com"
+            title="Please use a valid @gmail.com address (e.g., name@gmail.com)"
             required
           />
           <input

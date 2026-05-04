@@ -14,6 +14,7 @@ import {
   User,
 } from "lucide-react";
 import { createTripRequest, listTripRequests } from "../../api/trips";
+import { isNonEmptyString, containsNoNumbers } from "../../utils/validation";
 import { generateStaffRequestStatus, generateStaffTripHistory } from "../../services/pdf/reports/staffReports";
 
 function formatDate(value) {
@@ -303,6 +304,14 @@ function RequestForm({ onSubmitRequest }) {
 
   const handleSubmit = (event) => {
     event.preventDefault();
+    if (!isNonEmptyString(form.purpose) || !isNonEmptyString(form.destination)) {
+      window.alert("Purpose and destination must be valid text.");
+      return;
+    }
+    if (!containsNoNumbers(form.destination)) {
+      window.alert("Destination must be text only and cannot contain numbers.");
+      return;
+    }
     if (onSubmitRequest) onSubmitRequest(form);
     setForm({ purpose: "", destination: "", departureTime: "", returnTime: "" });
   };
