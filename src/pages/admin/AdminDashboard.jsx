@@ -16,21 +16,41 @@ import {
   Filter,
   Fuel,
   Gauge,
+  Plus,
   Search,
   Settings,
   ShieldCheck,
+  Trash2,
   TriangleAlert,
   Users,
   Wrench,
   XCircle,
 } from "lucide-react";
 import { jsPDF } from "jspdf";
-import { createAssignment, listAssignments, updateAssignmentStatus } from "../../api/assignments";
+import {
+  createAssignment,
+  getAssignmentById,
+  listAssignments,
+  updateAssignmentStatus,
+} from "../../api/assignments";
 import { getFuelRecordsByVehicle } from "../../api/fuelRecords";
 import { getTripLogById } from "../../api/tripLogs";
-import { approveTripRequest, getTripLogsByTripRequestId, listTripRequests, rejectTripRequest } from "../../api/trips";
-import { updateUserRole } from "../../api/users";
-import { listAllVehicles } from "../../api/vehicles";
+import {
+  approveTripRequest,
+  createTripRequest,
+  getTripLogsByTripRequestId,
+  getTripRequestById,
+  listTripRequests,
+  rejectTripRequest,
+} from "../../api/trips";
+import { getUserById, listDrivers, updateUserRole } from "../../api/users";
+import {
+  createVehicle,
+  deleteVehicle,
+  getVehicleById,
+  listAllVehicles,
+  updateVehicle,
+} from "../../api/vehicles";
 
 const kpiCardMeta = [
   { key: "tripsToday", label: "Total Trips Today", icon: Bus },
@@ -56,6 +76,8 @@ const navItems = [
 
 const systemHealth = [];
 
+import { showToast } from "../../components/Toast";
+
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("overview");
   const [requests, setRequests] = useState([]);
@@ -74,9 +96,18 @@ export default function AdminDashboard() {
   const [fuelRecords, setFuelRecords] = useState([]);
   const [fuelLoading, setFuelLoading] = useState(false);
   const [roleUpdateForm, setRoleUpdateForm] = useState({ userId: "", role: "DEAN" });
+  const [userSearchId, setUserSearchId] = useState("");
+  const [foundUser, setFoundUser] = useState(null);
+  const [drivers, setDrivers] = useState([]);
+  const [vehicleForm, setVehicleForm] = useState({ plateNumber: "", name: "", type: "CAR", status: "AVAILABLE" });
+  const [editingVehicleId, setEditingVehicleId] = useState(null);
+  const [isVehicleModalOpen, setIsVehicleModalOpen] = useState(false);
+  const [tripForm, setTripForm] = useState({ purpose: "", destination: "", departureTime: "", returnTime: "" });
+  const [isTripModalOpen, setIsTripModalOpen] = useState(false);
+  const [assignmentForm, setAssignmentForm] = useState({ tripRequestId: "", vehicleId: "", driverId: "" });
+  const [isAssignmentModalOpen, setIsAssignmentModalOpen] = useState(false);
   const [requestsLoading, setRequestsLoading] = useState(false);
   const [requestsError, setRequestsError] = useState("");
-  const [toasts, setToasts] = useState([]);
   const [confirmDialog, setConfirmDialog] = useState(null);
   const [investigatedTrip, setInvestigatedTrip] = useState("");
   const [reportDates, setReportDates] = useState({ start: "2026-03-30", end: "2026-04-05" });
@@ -116,30 +147,16 @@ export default function AdminDashboard() {
     }));
   }, [requests, pendingRequestsCount, vehicles, vehicleStatus, delayedTripsCount, fuelRecords, incidents]);
 
-  const addToast = (type, message) => {
-    const id = Date.now() + Math.random();
-    setToasts((prev) => [...prev, { id, type, message }]);
-  };
-
-  useEffect(() => {
-    if (!toasts.length) return;
-
-    const timeout = setTimeout(() => {
-      setToasts((prev) => prev.slice(1));
-    }, 2600);
-
-    return () => clearTimeout(timeout);
-  }, [toasts]);
-
   useEffect(() => {
     async function loadAdminReads() {
       setRequestsLoading(true);
 
       try {
-        const [tripRequests, fleetVehicles, assignmentRows] = await Promise.all([
+        const [tripRequests, fleetVehicles, assignmentRows, allDrivers] = await Promise.all([
           listTripRequests(),
           listAllVehicles().catch(() => []),
           listAssignments().catch(() => []),
+          listDrivers().catch(() => []),
         ]);
 
         const normalizedRequests = Array.isArray(tripRequests)
@@ -156,6 +173,7 @@ export default function AdminDashboard() {
           : [];
 
         setRequests(normalizedRequests);
+        setDrivers(Array.isArray(allDrivers) ? allDrivers : []);
         const normalizedAssignments = Array.isArray(assignmentRows)
           ? assignmentRows.map((assignment) => ({
               id: assignment.id ? String(assignment.id) : "N/A",
@@ -194,7 +212,7 @@ export default function AdminDashboard() {
         setAdminActions([]);
       } catch (error) {
         setRequestsError(error.message || "Could not sync admin reads from API.");
-        addToast("error", "Failed to load some admin data from backend.");
+        showToast("error", "Failed to load some admin data from backend.");
       } finally {
         setRequestsLoading(false);
       }
@@ -206,10 +224,10 @@ export default function AdminDashboard() {
   const requestColumns = [
     {
       key: "id",
-      label: "Request",
+      label: "ID",
       searchable: true,
       sortable: true,
-      render: (row) => <span className="font-semibold text-teal-700">{row.id}</span>,
+      render: (row) => <span className="font-mono text-[10px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded uppercase tracking-tighter">{row.id}</span>,
     },
     { key: "requester", label: "Requester", searchable: true, sortable: true },
     { key: "department", label: "Department", searchable: true, sortable: true },
@@ -222,6 +240,13 @@ export default function AdminDashboard() {
       sortable: false,
       render: (row) => (
         <div className="flex flex-wrap justify-end gap-2">
+          <button
+            type="button"
+            onClick={() => handleViewRequest(row)}
+            className="rounded-md border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+          >
+            Details
+          </button>
           <button
             type="button"
             onClick={() => handleApprove(row)}
@@ -251,10 +276,10 @@ export default function AdminDashboard() {
   const tripColumns = [
     {
       key: "id",
-      label: "Trip",
+      label: "ID",
       searchable: true,
       sortable: true,
-      render: (row) => <span className="font-semibold text-teal-700">{row.id}</span>,
+      render: (row) => <span className="font-mono text-[10px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded uppercase tracking-tighter">{row.id}</span>,
     },
     { key: "route", label: "Route", searchable: true, sortable: true },
     { key: "driver", label: "Driver", searchable: true, sortable: true },
@@ -268,6 +293,13 @@ export default function AdminDashboard() {
       sortable: false,
       render: (row) => (
         <div className="flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={() => handleViewAssignment(row)}
+            className="rounded-md border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+          >
+            Details
+          </button>
           <button
             type="button"
             onClick={() => investigateTrip(row)}
@@ -346,24 +378,72 @@ export default function AdminDashboard() {
   async function handleApprove(request) {
     try {
       await approveTripRequest(request.id);
-      setRequests((prev) => prev.map((item) => (item.id === request.id ? { ...item, status: "Approved" } : item)));
-      addToast("success", `Request ${request.id} approved.`);
+      setRequests((prev) =>
+        prev.map((item) => (item.id === request.id ? { ...item, status: "Approved" } : item))
+      );
+      showToast("success", `Request ${request.id} approved.`);
     } catch (error) {
-      addToast("error", error.message || `Failed to approve ${request.id}.`);
+      showToast("error", error.message || `Failed to approve ${request.id}.`);
     }
   }
 
-  async function handleAssign(request) {
+  async function handleViewRequest(row) {
+    try {
+      const data = await getTripRequestById(row.id);
+      window.alert(
+        `Request Details (#${data.id}):\n\nPurpose: ${data.purpose}\nDestination: ${data.destination}\nDeparture: ${data.departureTime}\nReturn: ${data.returnTime}\nStatus: ${data.status}\nRequester: ${data.requesterName || "N/A"}`
+      );
+    } catch {
+      showToast("error", "Failed to load request details.");
+    }
+  }
+
+  async function handleViewAssignment(row) {
+    try {
+      const data = await getAssignmentById(row.id);
+      window.alert(
+        `Assignment Details (#${data.id}):\n\nTrip Request ID: ${data.tripRequestId}\nDriver ID: ${data.driverId}\nVehicle ID: ${data.vehicleId}\nStatus: ${data.status}\nAssigned At: ${data.createdAt}`
+      );
+    } catch {
+      showToast("error", "Failed to load assignment details.");
+    }
+  }
+
+  async function handleViewVehicle(id) {
+    try {
+      const data = await getVehicleById(id);
+      window.alert(
+        `Vehicle Details (#${data.id}):\n\nName: ${data.name}\nPlate: ${data.plateNumber}\nType: ${data.type}\nStatus: ${data.status}`
+      );
+    } catch {
+      showToast("error", "Failed to load vehicle details.");
+    }
+  }
+
+  function handleAssign(request) {
+    setAssignmentForm({ tripRequestId: request.id, vehicleId: "", driverId: "" });
+    setIsAssignmentModalOpen(true);
+  }
+
+  async function submitAssignment() {
+    if (!assignmentForm.vehicleId || !assignmentForm.driverId) {
+      showToast("warning", "Select both a vehicle and a driver.");
+      return;
+    }
+
     try {
       await createAssignment({
-        tripRequestId: request.id,
-        destination: request.destination,
-        status: "ASSIGNED",
+        tripRequestId: Number(assignmentForm.tripRequestId),
+        vehicleId: Number(assignmentForm.vehicleId),
+        driverId: Number(assignmentForm.driverId),
       });
-      setRequests((prev) => prev.map((item) => (item.id === request.id ? { ...item, status: "Assigned" } : item)));
-      addToast("success", `Request ${request.id} assigned to transport desk.`);
+      setRequests((prev) =>
+        prev.map((item) => (item.id === assignmentForm.tripRequestId ? { ...item, status: "Assigned" } : item))
+      );
+      setIsAssignmentModalOpen(false);
+      showToast("success", `Request ${assignmentForm.tripRequestId} assigned successfully.`);
     } catch (error) {
-      addToast("error", error.message || `Failed to assign ${request.id}.`);
+      showToast("error", error.message || `Failed to assign ${assignmentForm.tripRequestId}.`);
     }
   }
 
@@ -377,9 +457,9 @@ export default function AdminDashboard() {
         try {
           await rejectTripRequest(request.id);
           setRequests((prev) => prev.map((item) => (item.id === request.id ? { ...item, status: "Declined" } : item)));
-          addToast("error", `Request ${request.id} declined.`);
+          showToast("error", `Request ${request.id} declined.`);
         } catch (error) {
-          addToast("error", error.message || `Failed to decline ${request.id}.`);
+          showToast("error", error.message || `Failed to decline ${request.id}.`);
         }
       },
     });
@@ -394,9 +474,9 @@ export default function AdminDashboard() {
       onConfirm: async () => {
         try {
           await updateAssignmentStatus(trip.id, "CANCELED");
-          addToast("error", `${trip.id} canceled and escalation logged.`);
-        } catch (error) {
-          addToast("error", error.message || `Failed to cancel ${trip.id}.`);
+          showToast("error", `${trip.id} canceled and escalation logged.`);
+        } catch {
+          showToast("error", `Failed to cancel ${trip.id}.`);
         }
       },
     });
@@ -412,15 +492,15 @@ export default function AdminDashboard() {
         getTripLogById(trip.id).catch(() => null),
       ]);
       const totalLogs = (Array.isArray(tripLogs) ? tripLogs.length : 0) + (singleLog ? 1 : 0);
-      addToast("warning", `Investigating ${trip.id}. Loaded ${totalLogs} trip log entries.`);
-    } catch (error) {
-      addToast("warning", `Investigating ${trip.id}. Trip logs are not available yet.`);
+      showToast("warning", `Investigating ${trip.id}. Loaded ${totalLogs} trip log entries.`);
+    } catch {
+      showToast("warning", `Investigating ${trip.id}. Trip logs are not available yet.`);
     }
   }
 
   async function loadFuelRecords() {
     if (!selectedVehicleId) {
-      addToast("warning", "Select a vehicle first.");
+      showToast("warning", "Select a vehicle first.");
       return;
     }
 
@@ -428,10 +508,10 @@ export default function AdminDashboard() {
     try {
       const rows = await getFuelRecordsByVehicle(selectedVehicleId);
       setFuelRecords(Array.isArray(rows) ? rows : []);
-      addToast("success", `Loaded fuel records for ${selectedVehicleId}.`);
+      showToast("success", `Loaded fuel records for ${selectedVehicleId}.`);
     } catch (error) {
       setFuelRecords([]);
-      addToast("error", error.message || "Could not load fuel records for selected vehicle.");
+      showToast("error", error.message || "Could not load fuel records for selected vehicle.");
     } finally {
       setFuelLoading(false);
     }
@@ -439,15 +519,117 @@ export default function AdminDashboard() {
 
   async function handleRoleUpdate() {
     if (!roleUpdateForm.userId.trim()) {
-      addToast("warning", "Enter a user ID before updating role.");
+      showToast("warning", "Enter a user ID before updating role.");
       return;
     }
 
     try {
       await updateUserRole(roleUpdateForm.userId.trim(), roleUpdateForm.role);
-      addToast("success", `Updated user ${roleUpdateForm.userId.trim()} role to ${roleUpdateForm.role}.`);
+      showToast("success", `Updated user ${roleUpdateForm.userId.trim()} role to ${roleUpdateForm.role}.`);
     } catch (error) {
-      addToast("error", error.message || "Role update failed.");
+      showToast("error", error.message || "Role update failed.");
+    }
+  }
+
+  async function handleUserSearch() {
+    if (!userSearchId.trim()) {
+      showToast("warning", "Enter a user ID to search.");
+      return;
+    }
+
+    try {
+      const user = await getUserById(userSearchId.trim());
+      setFoundUser(user);
+      showToast("success", `Found user: ${user.fullName || user.email}`);
+    } catch (error) {
+      setFoundUser(null);
+      showToast("error", error.message || "User not found.");
+    }
+  }
+
+  async function handleSaveVehicle() {
+    try {
+      if (editingVehicleId) {
+        const updated = await updateVehicle(editingVehicleId, vehicleForm);
+        setVehicles((prev) =>
+          prev.map((v) => (v.id === editingVehicleId ? { ...v, label: updated.name || updated.plateNumber } : v))
+        );
+        showToast("success", "Vehicle updated.");
+      } else {
+        const created = await createVehicle(vehicleForm);
+        setVehicles((prev) => [...prev, { id: created.id, label: created.name || created.plateNumber }]);
+        showToast("success", "Vehicle created.");
+      }
+      setIsVehicleModalOpen(false);
+      setEditingVehicleId(null);
+      setVehicleForm({ plateNumber: "", name: "", type: "CAR", status: "AVAILABLE" });
+    } catch (err) {
+      showToast("error", err.message || "Failed to save vehicle.");
+    }
+  }
+
+  function openEditVehicle(vehicleId) {
+    const v = vehicles.find((item) => item.id === vehicleId);
+    if (!v) return;
+    setEditingVehicleId(vehicleId);
+    setVehicleForm({
+      plateNumber: v.label.includes(" - ") ? v.label.split(" - ")[0] : v.label,
+      name: v.label.includes(" - ") ? v.label.split(" - ")[1] : v.label,
+      type: "CAR",
+      status: "AVAILABLE",
+    });
+    setIsVehicleModalOpen(true);
+  }
+
+  async function handleDeleteVehicle(id) {
+    setConfirmDialog({
+      title: "Delete Vehicle",
+      description: `Are you sure you want to delete vehicle ${id}? This cannot be undone.`,
+      confirmLabel: "Delete",
+      tone: "critical",
+      onConfirm: async () => {
+        try {
+          await deleteVehicle(id);
+          setVehicles((prev) => prev.filter((v) => v.id !== id));
+          showToast("success", "Vehicle deleted.");
+        } catch (error) {
+          showToast("error", error.message || "Failed to delete vehicle.");
+        }
+      },
+    });
+  }
+
+  async function handleCreateTrip() {
+    try {
+      const normalizeDateTime = (value) => {
+        if (!value) return value;
+        return value.length === 16 ? `${value}:00` : value;
+      };
+
+      const response = await createTripRequest({
+        purpose: tripForm.purpose,
+        destination: tripForm.destination,
+        departureTime: normalizeDateTime(tripForm.departureTime),
+        returnTime: normalizeDateTime(tripForm.returnTime),
+      });
+
+      const normalized = {
+        id: String(response.id),
+        requester: response.requesterName || "Admin",
+        role: "Admin",
+        department: "System",
+        urgency: "Medium",
+        date: normalizeDate(response.departureTime),
+        status: normalizeTripStatus(response.status),
+        destination: response.destination,
+      };
+
+      setRequests((prev) => [normalized, ...prev]);
+      setIsTripModalOpen(false);
+      setTripForm({ purpose: "", destination: "", departureTime: "", returnTime: "" });
+      showToast("success", "Trip request created.");
+    } catch (error) {
+      showToast("error", error.message || "Failed to create trip request.");
     }
   }
 
@@ -466,7 +648,7 @@ export default function AdminDashboard() {
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
 
-    addToast("success", "Weekly CSV report exported.");
+    showToast("success", "Weekly CSV report exported.");
   }
 
   function exportWeeklyPDF() {
@@ -484,7 +666,7 @@ export default function AdminDashboard() {
     });
 
     doc.save(`fleetflow-weekly-report-${reportDates.start}-to-${reportDates.end}.pdf`);
-    addToast("success", "Weekly PDF report exported.");
+    showToast("success", "Weekly PDF report exported.");
   }
 
   const overviewPanel = (
@@ -682,9 +864,18 @@ export default function AdminDashboard() {
                     <h2 className="text-sm font-semibold text-slate-700">Unified Request & Approval Center</h2>
                     <p className="text-xs text-slate-500">Pending requests across departments with quick approve, decline, and assign actions.</p>
                   </div>
-                  <span className="rounded-full bg-amber-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-amber-700">
-                    {pendingRequestsCount} Pending
-                  </span>
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => setIsTripModalOpen(true)}
+                      className="inline-flex items-center gap-2 rounded-lg bg-teal-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-teal-700"
+                    >
+                      <Plus size={14} />
+                      New Request
+                    </button>
+                    <span className="rounded-full bg-amber-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-amber-700">
+                      {pendingRequestsCount} Pending
+                    </span>
+                  </div>
                 </div>
                 {requestsLoading && (
                   <p className="mb-3 text-xs text-slate-500">Syncing approval queue from backend...</p>
@@ -746,6 +937,55 @@ export default function AdminDashboard() {
                       </div>
                     )}
                   </article>
+                </section>
+
+                <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <div className="mb-3 flex items-center justify-between">
+                    <h2 className="text-sm font-semibold text-slate-700">Fleet Inventory</h2>
+                    <button
+                      onClick={() => setIsVehicleModalOpen(true)}
+                      className="inline-flex items-center gap-2 rounded-lg bg-teal-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-teal-700"
+                    >
+                      <Plus size={14} />
+                      Add Vehicle
+                    </button>
+                  </div>
+                  <div className="max-h-60 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    {vehicles.length === 0 ? (
+                      <p className="text-xs text-slate-500">No vehicles in inventory.</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {vehicles.map((vehicle) => (
+                          <div key={vehicle.id} className="flex items-center justify-between rounded-lg border border-slate-100 bg-white p-2">
+                            <div>
+                              <p className="text-xs font-semibold text-slate-700">{vehicle.label}</p>
+                              <p className="text-[10px] text-slate-400">ID: {vehicle.id}</p>
+                            </div>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => handleViewVehicle(vehicle.id)}
+                                className="text-teal-600 hover:text-teal-800"
+                              >
+                                <Search size={14} />
+                              </button>
+                              <button
+                                onClick={() => openEditVehicle(vehicle.id)}
+                                className="text-amber-500 hover:text-amber-700"
+                              >
+                                <Settings size={14} />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteVehicle(vehicle.id)}
+                                className="text-rose-500 hover:text-rose-700"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </section>
 
                 <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -920,14 +1160,37 @@ export default function AdminDashboard() {
                   <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
                     <article className="rounded-xl border border-slate-200 bg-slate-50 p-4">
                       <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">User Management</p>
-                      <p className="mt-2 text-sm text-slate-600">Active users: <span className="font-semibold text-slate-800">--</span></p>
-                      <p className="text-sm text-slate-600">Pending invites: <span className="font-semibold text-amber-700">--</span></p>
-                      <div className="mt-3 space-y-2">
+                      <div className="mt-3 space-y-3">
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={userSearchId}
+                            onChange={(event) => setUserSearchId(event.target.value)}
+                            placeholder="Search User ID"
+                            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-600 outline-none focus:border-teal-400"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleUserSearch}
+                            className="rounded-lg bg-teal-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-teal-700"
+                          >
+                            Find
+                          </button>
+                        </div>
+                        {foundUser && (
+                          <div className="rounded-lg bg-white p-2 text-xs border border-teal-100">
+                            <p className="font-semibold text-slate-700">{foundUser.fullName}</p>
+                            <p className="text-slate-500">{foundUser.email}</p>
+                            <p className="text-teal-600 font-medium">Role: {foundUser.role}</p>
+                          </div>
+                        )}
+                        <hr className="border-slate-200" />
+                        <p className="text-[10px] font-semibold uppercase text-slate-400">Update Role</p>
                         <input
                           type="text"
                           value={roleUpdateForm.userId}
                           onChange={(event) => setRoleUpdateForm((prev) => ({ ...prev, userId: event.target.value }))}
-                          placeholder="User ID"
+                          placeholder="Target User ID"
                           className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-600 outline-none focus:border-teal-400"
                         />
                         <div className="flex gap-2">
@@ -953,9 +1216,24 @@ export default function AdminDashboard() {
                       </div>
                     </article>
                     <article className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                      <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Role Permissions</p>
-                      <p className="mt-2 text-sm text-slate-600">Custom role rules: <span className="font-semibold text-slate-800">--</span></p>
-                      <p className="text-sm text-slate-600">Recent changes: <span className="font-semibold text-teal-700">--</span></p>
+                      <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Registered Drivers</p>
+                      <div className="mt-3 max-h-40 overflow-y-auto space-y-2">
+                        {drivers.length === 0 ? (
+                          <p className="text-xs text-slate-500">No drivers registered.</p>
+                        ) : (
+                          drivers.map((driver) => (
+                            <div key={driver.id} className="rounded-lg bg-white p-2 border border-slate-100 flex items-center gap-2">
+                              <div className="h-6 w-6 rounded-full bg-teal-100 text-teal-700 flex items-center justify-center text-[10px] font-bold">
+                                {driver.fullName?.charAt(0) || "D"}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-[11px] font-semibold text-slate-700 truncate">{driver.fullName}</p>
+                                <p className="text-[9px] text-slate-400 truncate">ID: {driver.id}</p>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
                     </article>
                     <article className="rounded-xl border border-slate-200 bg-slate-50 p-4">
                       <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">System Health</p>
@@ -987,6 +1265,164 @@ export default function AdminDashboard() {
         </section>
       </div>
 
+      {isTripModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 p-4">
+          <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-lg">
+            <h3 className="mb-4 text-lg font-bold text-slate-800">New Trip Request</h3>
+            <div className="space-y-4">
+              <label className="block">
+                <span className="text-xs font-semibold text-slate-500 uppercase">Purpose</span>
+                <input
+                  type="text"
+                  value={tripForm.purpose}
+                  onChange={(e) => setTripForm({ ...tripForm, purpose: e.target.value })}
+                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  placeholder="e.g. Field Research"
+                />
+              </label>
+              <label className="block">
+                <span className="text-xs font-semibold text-slate-500 uppercase">Destination</span>
+                <input
+                  type="text"
+                  value={tripForm.destination}
+                  onChange={(e) => setTripForm({ ...tripForm, destination: e.target.value })}
+                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  placeholder="Location"
+                />
+              </label>
+              <div className="grid grid-cols-2 gap-4">
+                <label className="block">
+                  <span className="text-xs font-semibold text-slate-500 uppercase">Departure</span>
+                  <input
+                    type="datetime-local"
+                    value={tripForm.departureTime}
+                    onChange={(e) => setTripForm({ ...tripForm, departureTime: e.target.value })}
+                    className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  />
+                </label>
+                <label className="block">
+                  <span className="text-xs font-semibold text-slate-500 uppercase">Return</span>
+                  <input
+                    type="datetime-local"
+                    value={tripForm.returnTime}
+                    onChange={(e) => setTripForm({ ...tripForm, returnTime: e.target.value })}
+                    className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  />
+                </label>
+              </div>
+            </div>
+            <div className="mt-6 flex justify-end gap-2">
+              <button onClick={() => setIsTripModalOpen(false)} className="rounded-md border border-slate-200 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50">Cancel</button>
+              <button onClick={handleCreateTrip} className="rounded-md bg-teal-600 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-700">Submit Request</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isVehicleModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 p-4">
+          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-lg">
+            <h3 className="mb-4 text-lg font-bold text-slate-800">
+              {editingVehicleId ? "Edit Vehicle" : "Add New Vehicle"}
+            </h3>
+            <div className="space-y-4">
+              <label className="block">
+                <span className="text-xs font-semibold text-slate-500 uppercase">Plate Number</span>
+                <input
+                  type="text"
+                  value={vehicleForm.plateNumber}
+                  onChange={(e) => setVehicleForm({ ...vehicleForm, plateNumber: e.target.value })}
+                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  placeholder="KAA 001A"
+                />
+              </label>
+              <label className="block">
+                <span className="text-xs font-semibold text-slate-500 uppercase">Name/Model</span>
+                <input
+                  type="text"
+                  value={vehicleForm.name}
+                  onChange={(e) => setVehicleForm({ ...vehicleForm, name: e.target.value })}
+                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  placeholder="Toyota Hiace"
+                />
+              </label>
+              <label className="block">
+                <span className="text-xs font-semibold text-slate-500 uppercase">Type</span>
+                <select
+                  value={vehicleForm.type}
+                  onChange={(e) => setVehicleForm({ ...vehicleForm, type: e.target.value })}
+                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                >
+                  <option value="CAR">CAR</option>
+                  <option value="VAN">VAN</option>
+                  <option value="BUS">BUS</option>
+                  <option value="TRUCK">TRUCK</option>
+                </select>
+              </label>
+            </div>
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                onClick={() => {
+                  setIsVehicleModalOpen(false);
+                  setEditingVehicleId(null);
+                  setVehicleForm({ plateNumber: "", name: "", type: "CAR", status: "AVAILABLE" });
+                }}
+                className="rounded-md border border-slate-200 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveVehicle}
+                className="rounded-md bg-teal-600 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-700"
+              >
+                {editingVehicleId ? "Save Changes" : "Add Vehicle"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isAssignmentModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 p-4">
+          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-lg">
+            <h3 className="mb-4 text-lg font-bold text-slate-800">Assign Trip Request</h3>
+            <p className="mb-4 text-sm text-slate-500">Assign a driver and vehicle to Request #{assignmentForm.tripRequestId}</p>
+            <div className="space-y-4">
+              <label className="block">
+                <span className="text-xs font-semibold text-slate-500 uppercase">Vehicle</span>
+                <select
+                  value={assignmentForm.vehicleId}
+                  onChange={(e) => setAssignmentForm({ ...assignmentForm, vehicleId: e.target.value })}
+                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                >
+                  <option value="">Select Vehicle...</option>
+                  {vehicles.map((v) => (
+                    <option key={v.id} value={v.id}>{v.label}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="block">
+                <span className="text-xs font-semibold text-slate-500 uppercase">Driver</span>
+                <select
+                  value={assignmentForm.driverId}
+                  onChange={(e) => setAssignmentForm({ ...assignmentForm, driverId: e.target.value })}
+                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                >
+                  <option value="">Select Driver...</option>
+                  {drivers.map((d) => (
+                    <option key={d.id} value={d.id}>{d.fullName || d.email}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <div className="mt-6 flex justify-end gap-2">
+              <button onClick={() => setIsAssignmentModalOpen(false)} className="rounded-md border border-slate-200 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50">Cancel</button>
+              <button onClick={submitAssignment} className="rounded-md bg-teal-600 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-700">Confirm Assignment</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {confirmDialog && (
         <ConfirmDialog
           {...confirmDialog}
@@ -997,12 +1433,6 @@ export default function AdminDashboard() {
           }}
         />
       )}
-
-      <div className="pointer-events-none fixed bottom-4 right-4 z-50 flex w-full max-w-sm flex-col gap-2">
-        {toasts.map((toast) => (
-          <Toast key={toast.id} type={toast.type} message={toast.message} />
-        ))}
-      </div>
     </main>
   );
 }
@@ -1022,10 +1452,6 @@ function SmartTable({ title, columns, rows, filters, pageSize = 5, initialLoadDe
     }, initialLoadDelay);
     return () => clearTimeout(timer);
   }, [initialLoadDelay]);
-
-  useEffect(() => {
-    setPage(1);
-  }, [query, selectedFilters, sort]);
 
   const processedRows = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -1066,17 +1492,22 @@ function SmartTable({ title, columns, rows, filters, pageSize = 5, initialLoadDe
   const totalPages = Math.max(1, Math.ceil(processedRows.length / pageSize));
   const currentRows = processedRows.slice((page - 1) * pageSize, page * pageSize);
 
+  const handleQueryChange = (value) => {
+    setQuery(value);
+    setPage(1);
+  };
+
   const setFilterValue = (key, value) => {
     setSelectedFilters((prev) => ({ ...prev, [key]: value }));
+    setPage(1);
   };
 
   const toggleSort = (key) => {
     setSort((prev) => {
-      if (prev.key !== key) {
-        return { key, direction: "asc" };
-      }
-      return { key, direction: prev.direction === "asc" ? "desc" : "asc" };
+      const direction = prev.key === key && prev.direction === "asc" ? "desc" : "asc";
+      return { key, direction };
     });
+    setPage(1);
   };
 
   const retryLoad = () => {
@@ -1094,7 +1525,7 @@ function SmartTable({ title, columns, rows, filters, pageSize = 5, initialLoadDe
             <input
               type="text"
               value={query}
-              onChange={(event) => setQuery(event.target.value)}
+              onChange={(event) => handleQueryChange(event.target.value)}
               placeholder="Search"
               className="w-36 rounded-lg border border-slate-200 bg-white py-1.5 pl-8 pr-2 text-xs text-slate-600 outline-none focus:border-teal-400 md:w-44"
             />
@@ -1260,7 +1691,8 @@ function InputField({ label, value, onChange }) {
   );
 }
 
-function ActionButton({ icon: Icon, label, onClick }) {
+function ActionButton({ icon, label, onClick }) {
+  const Icon = icon;
   return (
     <button
       type="button"
@@ -1301,14 +1733,6 @@ function ConfirmDialog({ title, description, confirmLabel, tone, onClose, onConf
           </button>
         </div>
       </div>
-    </div>
-  );
-}
-
-function Toast({ type, message }) {
-  return (
-    <div className={`pointer-events-auto rounded-lg border px-3 py-2 text-sm shadow-sm ${toastClass(type)}`}>
-      {message}
     </div>
   );
 }
@@ -1368,12 +1792,6 @@ function metricPillClass(tone) {
   if (tone === "warning") return "rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700";
   if (tone === "critical") return "rounded-full bg-rose-100 px-2 py-0.5 text-xs font-semibold text-rose-700";
   return "rounded-full bg-slate-200 px-2 py-0.5 text-xs font-semibold text-slate-700";
-}
-
-function toastClass(type) {
-  if (type === "success") return "border-emerald-200 bg-emerald-50 text-emerald-800";
-  if (type === "warning") return "border-amber-200 bg-amber-50 text-amber-800";
-  return "border-rose-200 bg-rose-50 text-rose-800";
 }
 
 function StatusBadge({ status }) {

@@ -14,6 +14,8 @@ import {
 } from "lucide-react";
 import { createTripRequest, listTripRequests } from "../../api/trips";
 
+import { showToast } from "../../components/Toast";
+
 function formatDate(value) {
   if (!value) return "-";
   const parsed = new Date(value);
@@ -83,15 +85,15 @@ export default function StaffDashboard({ onSubmitRequest, onViewDetails, onSearc
         returnTime: normalizeDateTime(form.returnTime),
       });
       setAllRequests((prev) => [response, ...prev]);
-      window.alert("Trip request submitted.");
+      showToast("Trip request submitted.", "success");
     } catch (error) {
-      window.alert(error.message || "Failed to submit request.");
+      showToast(error.message || "Failed to submit request.", "error");
     }
   };
 
   const handleViewDetails = (request) => {
     if (onViewDetails) return onViewDetails(request);
-    window.alert(
+    showToast(
       `Trip #${request.id}\nDestination: ${request.destination}\nPurpose: ${request.purpose}\nStatus: ${request.status}`
     );
   };
@@ -373,7 +375,9 @@ function RequestTable({ requests, onViewDetails, loading }) {
 
             {requests.map((request) => (
               <tr key={request.id} className="border-t border-slate-100 hover:bg-slate-50">
-                <td className="px-6 py-4 font-medium text-slate-700">#{request.id}</td>
+                <td className="px-6 py-4 font-mono text-[10px] font-bold text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded uppercase tracking-tighter">
+                  {request.id}
+                </td>
                 <td className="px-6 py-4 text-slate-600">{request.destination}</td>
                 <td className="px-6 py-4 text-slate-500">{formatDate(request.departureTime)}</td>
                 <td className="px-6 py-4">

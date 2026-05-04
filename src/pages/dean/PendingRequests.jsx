@@ -8,6 +8,8 @@ import {
   rejectTripRequest,
 } from "../../api/trips";
 
+import { showToast } from "../../components/Toast";
+
 function initials(name) {
   if (!name) return "NA";
   return name
@@ -60,7 +62,7 @@ const PendingRequests = () => {
       await approveTripRequest(id);
       setRequests((prev) => prev.filter((request) => request.id !== id));
     } catch (err) {
-      window.alert(err.message || "Failed to approve request.");
+      showToast(err.message || "Failed to approve request.");
     }
   };
 
@@ -75,7 +77,7 @@ const PendingRequests = () => {
       setRequests((prev) => prev.filter((request) => request.id !== id));
       setIsModalOpen(false);
     } catch (err) {
-      window.alert(err.message || "Failed to reject request.");
+      showToast(err.message || "Failed to reject request.");
     }
   };
 
@@ -121,7 +123,11 @@ const PendingRequests = () => {
             ) : pendingRequests.length > 0 ? (
               pendingRequests.map((req) => (
                 <tr key={req.id} className="text-sm">
-                  <td className="py-4">#{req.id}</td>
+                  <td className="py-4">
+                    <span className="font-mono text-[10px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded uppercase tracking-tighter">
+                      {req.id}
+                    </span>
+                  </td>
 
                   <td className="py-4">
                     <div className="flex items-center gap-3">

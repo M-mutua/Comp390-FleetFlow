@@ -8,6 +8,7 @@ import {
   InboxIcon,
 } from "../../assets/icons";
 import { listTripRequests } from "../../api/trips";
+import { showToast } from "../../components/Toast";
 
 const COLUMNS = ["Request ID", "Date", "Driver", "Destination", "Status", "Action"];
 
@@ -155,7 +156,9 @@ export default function MyRequests() {
               key={req.id}
               className="grid grid-cols-6 items-center px-6 py-4 border-b border-slate-50 last:border-b-0 hover:bg-slate-50 transition-colors"
             >
-              <span className="text-sm font-bold text-slate-800">#{req.id}</span>
+              <span className="font-mono text-[10px] font-bold text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded uppercase tracking-tighter w-fit">
+                {req.id}
+              </span>
               <span className="text-sm text-slate-600">{formatDate(req.departureTime)}</span>
 
               <div className="flex items-center gap-2">
@@ -181,7 +184,7 @@ export default function MyRequests() {
 
               <button
                 className="text-sm font-semibold text-teal-600 hover:text-teal-700 text-left"
-                onClick={() => window.alert(`${req.purpose || "No purpose provided"}`)}
+                onClick={() => showToast(`${req.purpose || "No purpose provided"}`)}
               >
                 View Details
               </button>

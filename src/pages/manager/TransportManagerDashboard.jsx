@@ -15,6 +15,7 @@ import { createAssignment, listAssignments } from "../../api/assignments";
 import { listTripRequests } from "../../api/trips";
 import { listAllVehicles } from "../../api/vehicles";
 import { listDrivers } from "../../api/users";
+import { showToast } from "../../components/Toast";
 
 const navItems = [
   { key: "dashboard", label: "Dashboard", icon: Gauge },
@@ -100,7 +101,7 @@ export default function TransportManagerDashboard() {
 
   const handleSubmit = async () => {
     if (!form.tripRequestId || !form.vehicleId || !form.driverId) {
-      window.alert("Please fill all fields before submitting assignment.");
+      showToast("Please fill all fields before submitting assignment.");
       return;
     }
 
@@ -113,9 +114,9 @@ export default function TransportManagerDashboard() {
       setAssignments((prev) => [created, ...prev]);
       setApprovedRequests((prev) => prev.filter((item) => item.id !== Number(form.tripRequestId)));
       setForm({ tripRequestId: "", vehicleId: "", driverId: "" });
-      window.alert("Assignment created successfully.");
+      showToast("Assignment created successfully.");
     } catch (err) {
-      window.alert(err.message || "Failed to create assignment.");
+      showToast(err.message || "Failed to create assignment.");
     }
   };
 
@@ -311,8 +312,19 @@ export default function TransportManagerDashboard() {
                         ) : (
                           assignments.map((item) => (
                             <tr key={item.id} className="border-t border-slate-100">
-                              <td className="px-5 py-3 text-teal-700">#{item.id}</td>
-                              <td className="px-5 py-3">#{item.tripRequestId} - {item.destination || "-"}</td>
+                              <td className="px-5 py-3">
+                                <span className="font-mono text-[10px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded uppercase tracking-tighter w-fit">
+                                  {item.id}
+                                </span>
+                              </td>
+                              <td className="px-5 py-3">
+                                <span className="font-mono text-[10px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded uppercase tracking-tighter w-fit">
+                                  {item.tripRequestId}
+                                </span>
+                                <span className="ml-2 text-xs text-slate-600">
+                                  {item.destination || "-"}
+                                </span>
+                              </td>
                               <td className="px-5 py-3">{item.vehiclePlateNumber || "-"}</td>
                               <td className="px-5 py-3">{item.driverName || `ID ${item.driverId}`}</td>
                               <td className="px-5 py-3">{item.status || "-"}</td>
